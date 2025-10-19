@@ -16,9 +16,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY . /app
 
 # Expose port
-ENV PORT=8000
+ENV PORT=80
 EXPOSE ${PORT}
 
 # Default command to run uvicorn
 # Run update script first (safe to run even if no UPSTREAM_REPO set), then start uvicorn
 CMD ["/bin/sh", "-c", "python update.py || true; uvicorn web:app --host 0.0.0.0 --port ${PORT}"]
+
