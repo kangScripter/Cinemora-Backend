@@ -167,4 +167,5 @@ def get_landing_page():
     shows = get_all_shows()
     return {"movies": movies, "shows": shows}
 
-handler = Mangum(app)
+# handler = Mangum(app)
+
