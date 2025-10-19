@@ -3,7 +3,7 @@ services:
   api:
     build: .
     ports:
-      - "${HOST_PORT:-8000}:8000"
+      - "${HOST_PORT:-80}:80"
     environment:
       - PORT=8000
       - MONGO_URI=${MONGO_URI}
@@ -18,4 +18,5 @@ services:
       resources:
         limits:
           memory: 512M
+
 
