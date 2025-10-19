@@ -1,15 +1,24 @@
-FROM public.ecr.aws/lambda/python:3.8
-COPY . ${LAMBDA_TASK_ROOT}
+FROM python:3.11-slim
+
+# Set working directory
 WORKDIR /app
-ARG DEBIAN_FRONTEND=noninteractive
- 
-RUN yum update -y
-RUN yum update -y python3 curl libcom_err ncurses expat libblkid libuuid libmount
-RUN yum install ffmpeg libsm6 libxext6 python3-pip git -y
- 
-RUN pip3 install fastapi --target "${LAMBDA_TASK_ROOT}"
-RUN pip3 install mangum --target "${LAMBDA_TASK_ROOT}"
- 
-COPY ./requirements.txt ./requirements.txt
-RUN pip install -r ./requirements.txt
-CMD ["web.handler"]
+
+# Install build deps
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential gcc git curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy source
+COPY . /app
+
+# Expose port
+ENV PORT=8000
+EXPOSE ${PORT}
+
+# Default command to run uvicorn
+# Run update script first (safe to run even if no UPSTREAM_REPO set), then start uvicorn
+CMD ["/bin/sh", "-c", "python update.py || true; uvicorn web:app --host 0.0.0.0 --port ${PORT}"]

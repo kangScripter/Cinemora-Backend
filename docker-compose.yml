@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  api:
+    build: .
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+    environment:
+      - PORT=8000
+      - MONGO_URI=${MONGO_URI}
+      - BASE_URL=${BASE_URL}
+      - SUBDOMAIN=${SUBDOMAIN}
+      - SCHEME=${SCHEME}
+  - CONFIG_FILE_URL=${CONFIG_FILE_URL}
+  - UPSTREAM_REPO=${UPSTREAM_REPO}
+  - UPSTREAM_BRANCH=${UPSTREAM_BRANCH}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M

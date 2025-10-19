@@ -1,34 +1,50 @@
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
-from db import get_all_movies, get_movies_by_genre, get_movie_by_id, get_stream_info, search_movies,get_movies_by_language, paginate_movies, \
-    get_all_shows , get_show_by_genre, get_show_by_id, get_episode_info, \
-    movies_collection, show_collection, similar_movies
-from mangum import Mangum
+from db import (
+    get_all_movies,
+    get_movies_by_genre,
+    get_movie_by_id,
+    get_stream_info,
+    search_movies,
+    get_movies_by_language,
+    paginate_movies,
+    get_all_shows,
+    get_show_by_genre,
+    get_show_by_id,
+    get_episode_info,
+    movies_collection,
+    show_collection,
+    similar_movies,
+)
+import os
 import json
 from datetime import datetime, timedelta, timezone
 import urllib.parse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
 @app.get("/movies")
-def list_all_movies():
+async def list_all_movies():
     movies = get_all_movies()
     return {"movies": movies}
 
 @app.get("/movies/genre/{genre}")
-def movies_by_genre(genre: str):
+async def movies_by_genre(genre: str):
     movies = get_movies_by_genre(genre.capitalize())
     return {"genre": genre, "movies": movies}
 
 @app.get("/movies/language/{language}")
-def movies_by_language(language: str):
-    movies = get_movies_by_language(language.capitalize())
+async def movies_by_language(language: str):
+    movies = get_movies_by_language(language)
     if not movies:
         raise HTTPException(status_code=404, detail="No movies found")
     return {"language": language, "movies": movies}
 
 @app.get("/movies/{movie_id}")
-def get_movie_metadata(movie_id: str):
+async def get_movie_metadata(movie_id: str):
     movie = get_movie_by_id(movie_id)
     similarmovies = similar_movies(movie_id)
     if not movie:
@@ -36,14 +52,14 @@ def get_movie_metadata(movie_id: str):
     return {"movie": movie, "similar_movies": similarmovies}
 
 @app.get("/movies/{movie_id}/stream")
-def get_streaming_info(movie_id: str):
+async def get_streaming_info(movie_id: str):
     stream = get_stream_info(movie_id)
     if not stream:
         raise HTTPException(status_code=404, detail="Stream info not found")
     return {"stream": stream}
 
 @app.get("/search")
-def search_movie(query: str):
+async def search_movie(query: str):
     query = urllib.parse.unquote(query)
     movies = search_movies(query)
     if not movies:
@@ -51,7 +67,7 @@ def search_movie(query: str):
     return {"movies": movies}
 
 @app.get("/page/next")
-def get_next_movies(page: int, type: str, value: str,catalog:str):
+async def get_next_movies(page: int, type: str, value: str, catalog: str):
     page_size = 20
     print(page, type, value)
     movies = paginate_movies(page, page_size, type, value, catalog)
@@ -61,32 +77,33 @@ def get_next_movies(page: int, type: str, value: str,catalog:str):
 
 ## SHOW APIs 
 @app.get("/shows")
-def list_all_shows():
+async def list_all_shows():
     shows = get_all_shows()
     return {"shows": shows}
     
 @app.get("/shows/genre/{genre}")
-def shows_by_genre(genre: str):
+async def shows_by_genre(genre: str):
     shows = get_show_by_genre(genre.capitalize())
     return {"genre": genre, "shows": shows}
 
 # if not shows:
-    #     raise HTTPException(status_code=404, detail="No shows found")
-    # return {"genre": genre, "shows": shows}
+#     raise HTTPException(status_code=404, detail="No shows found")
+# return {"genre": genre, "shows": shows}
 
 @app.get("/shows/{show_id}")
-def get_show_metadata(show_id: str):
+async def get_show_metadata(show_id: str):
     show = get_show_by_id(show_id)
     if not show:
         raise HTTPException(status_code=404, detail="Show not found")
     return {"show": show}
 
 @app.get("/stream/{show_id}/{season_id}/{episode_id}")
-def get_episode_metadata(show_id: str, episode_id: str, season_id: str):
-    episode = get_episode_info(show_id,season_id, episode_id)
+async def get_episode_metadata(show_id: str, episode_id: str, season_id: str):
+    episode = get_episode_info(show_id, season_id, episode_id)
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
     return {"stream": episode}
+
 
 def generate_sitemap(urls):
     """ Generate the full sitemap XML from the list of URLs. """
@@ -104,8 +121,9 @@ def generate_sitemap(urls):
 {body}
 </urlset>"""
 
+
 def valid_date(date):
-    TIMEZONE_OFFSET = timezone(timedelta(hours=1)) 
+    TIMEZONE_OFFSET = timezone(timedelta(hours=1))
     """ Ensure the date is in the correct ISO 8601 format with timezone offset, without microseconds. """
     if isinstance(date, datetime):
         # Use the datetime directly and ensure it's in the right timezone offset
@@ -128,9 +146,22 @@ def valid_date(date):
 
 @app.get("/sitemap.xml")
 def get_sitemap():
-    DOMAIN = "https://cinemora.in"
-    TIMEZONE_OFFSET = timezone(timedelta(hours=1)) 
-    # Get the current date/time in UTC+1 (or adjust to other offsets)
+    # Build domain from environment or use default
+    BASE_URL = os.environ.get("BASE_URL")
+    SUBDOMAIN = os.environ.get("SUBDOMAIN")
+    PORT = os.environ.get("PORT", "8000")
+    SCHEME = os.environ.get("SCHEME", "http")
+
+    if BASE_URL:
+        DOMAIN = BASE_URL.rstrip("/")
+    elif SUBDOMAIN:
+        # include port when provided and not default HTTP/HTTPS ports
+        DOMAIN = f"{SCHEME}://{SUBDOMAIN}:{PORT}"
+    else:
+        DOMAIN = "https://cinemora.in"
+
+    TIMEZONE_OFFSET = timezone(timedelta(hours=1))
+    # Get the current date/time in the configured timezone
     now = datetime.now(TIMEZONE_OFFSET).isoformat()
 
     # Static pages (ensure the 'lastmod' is valid)
@@ -162,10 +193,17 @@ def get_sitemap():
     return Response(content=xml_content, media_type="application/xml")
 
 @app.get('/landingpage')
-def get_landing_page():
+async def get_landing_page():
     movies = get_all_movies()
     shows = get_all_shows()
     return {"movies": movies, "shows": shows}
 
-# handler = Mangum(app)
+try:
+    # Import Mangum only when available (AWS Lambda environments). Avoids import errors locally.
+    from mangum import Mangum  # type: ignore
+except Exception:
+    Mangum = None
 
+# If running in AWS Lambda the environment variable AWS_LAMBDA_FUNCTION_NAME will be present
+if os.environ.get("AWS_LAMBDA_FUNCTION_NAME") and Mangum:
+    handler = Mangum(app)

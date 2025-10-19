@@ -1,14 +1,19 @@
 from pymongo import MongoClient
-from helper import  get_native_language_name
+from helper import get_native_language_name
 import re
 from datetime import datetime, timedelta
 import dateutil.parser
+import os
 
+MONGO_URI = os.environ.get("MONGO_URI")
+if not MONGO_URI:
+    # Fallback to the previous hard-coded URI for users who haven't set env var yet.
+    MONGO_URI = "mongodb+srv://telexmovies:telex9949@streamripper.ks7lydv.mongodb.net/?retryWrites=true&w=majority&appName=Streamripper"
 
-client = MongoClient("mongodb+srv://telexmovies:telex9949@streamripper.ks7lydv.mongodb.net/?retryWrites=true&w=majority&appName=Streamripper")
-db = client["streamripper"]
-movies_collection = db["movies"]
-show_collection = db["shows"]
+client = MongoClient(MONGO_URI)
+db = client[os.environ.get("MONGO_DB", "streamripper")]
+movies_collection = db[os.environ.get("MOVIES_COLLECTION", "movies")]
+show_collection = db[os.environ.get("SHOWS_COLLECTION", "shows")]
 
 # def get_all_movies():
 #     return list(movies_collection.find({}, {
@@ -19,7 +24,7 @@ def get_all_movies():
     movies = list(movies_collection.find(
          {
             "imdb_rating": {"$ne": 10},           # imdb_rating NOT equal to 10
-            "imdb_votes": {"$gt": 200}              # imdb_votes greater than 3
+            "imdb_votes": {"$gt": 200}              # imdb_votes greater than 200
         },
         {"_id": True, "title": 1, "year": 1, "images": 1, "description": 1, "genre": 1, "imdb_rating": 1, "imdb_votes": 1}
     ).sort("imdb_rating", -1).limit(10))
@@ -29,7 +34,7 @@ def get_top_rated_movies():
         return list(movies_collection.find(
          {
             "imdb_rating": {"$ne": 10},           # imdb_rating NOT equal to 10
-            "imdb_votes": {"$gt": 20}              # imdb_votes greater than 3
+            "imdb_votes": {"$gt": 20}              # imdb_votes greater than 20
         },
         {"_id": True, "title": 1, "year": 1, "images": 1, "description": 1, "genre": 1, "imdb_rating": 1, "imdb_votes": 1}
     ).sort("imdb_rating", -1).limit(20))[::-1]
@@ -97,10 +102,10 @@ def search_movies(query: str):
     return data
 
 def get_movies_by_language(language: str, page=10):
-        language =get_native_language_name(language.capitalize())
+        language = get_native_language_name(language)
         print(language)
         # query = {"languages": {"$eleMatch": {"$eq": language}}}
-        query = {"languages": [language] }
+        query = {"languages": {"$elemMatch": {"$eq": language}} }
         projection = {"_id": True, "title": 1, "year": 1, "images": 1, "duration": 1, "genre": 1, "rating": 1,"description": 1}
         return list(movies_collection.find(query, projection).limit(page))
         

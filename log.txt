@@ -1,0 +1,1 @@
+2025-10-19 18:00:04,585 - root - INFO - No UPSTREAM_REPO configured, skipping update.
